@@ -24,7 +24,6 @@ SETTINGS = {
     # Configuration to build.
     'config': 'debug',
     # QEMU executable to use
-    # Indexed by the `arch` setting
     'qemu_binary': 'qemu-system-x86_64',
     # Path to directory containing `OVMF_{CODE/VARS}.fd` (for x86_64),
     # or `*-pflash.raw` (for AArch64).
@@ -284,27 +283,12 @@ def main():
     parser.add_argument('verb', help='command to run', type=str,
                         choices=['build', 'run', 'clippy'])
 
-    parser.add_argument('--target', help='target to build for (default: %(default)s)', type=str,
-                        choices=['x86_64', 'aarch64'], default='x86_64')
-
-    parser.add_argument('--verbose', '-v', help='print commands before executing them',
-                        action='store_true')
-
-    parser.add_argument('--headless', help='run QEMU without a GUI',
-                        action='store_true')
 
     parser.add_argument('--release', help='build in release mode',
                         action='store_true')
 
-    parser.add_argument('--ci', help='disables some tests which currently break CI',
-                        action='store_true')
 
     opts = parser.parse_args()
-
-    SETTINGS['arch'] = opts.target
-    # Check if we need to enable verbose mode
-    SETTINGS['verbose'] = opts.verbose
-    SETTINGS['headless'] = opts.headless
     SETTINGS['config'] = 'release' if opts.release else 'debug'
 
     verb = opts.verb

@@ -30,7 +30,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     uefi_services::init(&mut st).expect_success("Failed to initialized system table stuff");
 
     let ram_size = helpers::get_free_ram_size(st.boot_services());
-    info!("Determined RAM size: {}", ram_size);
+    info!("Determined RAM size: {} pages ({} bytes)", ram_size, ram_size * 4096);
     
     st.boot_services().stall(1_000_000);
     shutdown(image, st);
