@@ -30,6 +30,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "partabled"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "rlibc",
+ "uefi",
+ "uefi-macros",
+ "uefi-services",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -112,17 +123,6 @@ dependencies = [
  "log",
  "qemu-exit",
  "uefi",
-]
-
-[[package]]
-name = "uefi_test"
-version = "0.1.0"
-dependencies = [
- "log",
- "rlibc",
- "uefi",
- "uefi-macros",
- "uefi-services",
 ]
 
 [[package]]

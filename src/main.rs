@@ -16,30 +16,23 @@ use core::mem;
 use uefi::prelude::*;
 use uefi::table::boot::MemoryDescriptor;
 
-#[panic_handler]
-fn panic_handler(_: &core::panic::PanicInfo) -> ! {
-    info!("Failed to handle a panic!");
-    loop {}
-}
-
-#[alloc_error_handler]
-fn out_of_memory(layout: core::alloc::Layout) -> ! {
-    panic!(
-        "Ran out of free memory while trying to allocate {:#?}",
-        layout
-    );
-}
-
-/*
-#[alloc_error_handler]
-fn alloc_handler() {
-    info!("Failed to handle allocation!");
-    loop {}
-}*/
+// include our local files too
+mod gpt;
+mod mbr;
+mod ext4;
+mod fat32;
+mod helpers;
 
 
 #[entry]
 fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
+    // initialize the crap
+    uefi_services::init(&mut st).expect_success("Failed to initialized system table stuff");
+
+    let ram_size = helpers::get_free_ram_size(st.boot_services());
+    info!("Determined RAM size: {}", ram_size);
+    
+    st.boot_services().stall(1_000_000);
     shutdown(image, st);
 }
 
@@ -47,14 +40,12 @@ fn shutdown(image: uefi::Handle, mut st: SystemTable<Boot>) -> ! {
     use uefi::table::runtime::ResetType;
 
     // Get our text output back.
-    st.stdout().reset(false).unwrap_success();
+    //st.stdout().reset(false).unwrap_success();
 
-    // Inform the user, and give him time to read on real hardware
-    if cfg!(not(feature = "qemu")) {
-        info!("Testing complete, shutting down in 3 seconds...");
-        st.boot_services().stall(3_000_000);
-    }
-
+    // Inform the user we are done
+    info!("Testing complete, shutting down in 3 seconds...");
+    st.boot_services().stall(3_000_000);
+    
     // Exit boot services as a proof that it works :)
     let max_mmap_size =
         st.boot_services().memory_map_size() + 8 * mem::size_of::<MemoryDescriptor>();

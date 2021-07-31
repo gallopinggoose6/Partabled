@@ -1,5 +1,5 @@
 [package]
-name = "uefi_test"
+name = "partabled"
 version = "0.1.0"
 authors = ["Nick Ammann"]
 edition = "2018"
