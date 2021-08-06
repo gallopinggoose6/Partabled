@@ -1,5 +1,5 @@
 // Includes structs and APIs for handing of the GPT partition table format
-use uefi;
+use uefi::prelude::*;
 
 /// define out GPT struct, which will take an EFI disk to parse
 struct GPT {
@@ -12,5 +12,10 @@ impl GPT {
         GPT {
             disk_num: 0
         }
+    }
+
+    /// checks to see if a disk has a legacy or protective MBR
+    fn check_mbr(&self) -> Result<(), u32> {
+        Ok(())
     }
 }

@@ -16,6 +16,8 @@ use core::mem;
 use uefi::prelude::*;
 use uefi::table::boot::MemoryDescriptor;
 
+
+
 // include our local files too
 mod gpt;
 mod mbr;
@@ -24,19 +26,28 @@ mod fat32;
 mod helpers;
 
 
+
 #[entry]
 fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     // initialize the crap
     uefi_services::init(&mut st).expect_success("Failed to initialized system table stuff");
+    let bs = st.boot_services();
+    let rt = st.runtime_services();
 
-    let ram_size = helpers::get_free_ram_size(st.boot_services());
-    info!("Determined RAM size: {} pages ({} bytes)", ram_size, ram_size * 4096);
+    // print version information
+    helpers::print_system_info(&image, &st);
+
+    // try to determine the path to the disk
+    let dev_h = helpers::get_disk_protos(&bs);
+
     
+    // wait a bit, then shutdown
     st.boot_services().stall(1_000_000);
     shutdown(image, st);
 }
 
-fn shutdown(image: uefi::Handle, mut st: SystemTable<Boot>) -> ! {
+/// shutdown the system
+fn shutdown(image: uefi::Handle, st: SystemTable<Boot>) -> ! {
     use uefi::table::runtime::ResetType;
 
     // Get our text output back.
