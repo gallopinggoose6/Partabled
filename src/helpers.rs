@@ -111,6 +111,8 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
         let mut buffer = vec![0u8;512];
 
         
+
+        ////// BROKEN HERE //////
         // save what we need to read a block
         let mut mid = b_info.media_id();
         let first_lba = b_info.lowest_aligned_lba();
@@ -118,6 +120,7 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
         let alloc_t = AllocateType::Address(b_info.io_align() as usize);
         let mut pg = bs.allocate_pages(alloc_t, MemoryType::LOADER_DATA, 1)
                        .expect_success("Failed to allocate pool");
+
 
         // make sure our page obeys the disk's alignment
         assert_eq!(pg % b_info.io_align() as u64, 0, "Page is not properly aligned!");
