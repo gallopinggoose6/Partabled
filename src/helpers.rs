@@ -86,13 +86,39 @@ pub fn print_system_info(image: &Handle, st: &SystemTable<Boot>) {
 
 /// returns all disks protocol
 pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
-    // see if the BlockIO protocol is supported on the device
-    if let Ok(block_io) = bs.locate_protocol::<BlockIO>() {
-        let block_io = block_io.expect("Failed to open block device");
-        let block_io = unsafe {&* block_io.get()};
 
-        // try to get the media information of the handle
-        let b_info = block_io.media();
+    // determine all disk protocol handles there are installed on the system
+    let search = uefi::table::boot::SearchType::from_proto::<BlockIO>();
+    let out = match bs.locate_handle(search, None) {
+        Err(a) => panic!("Error in locate handles."),
+        Ok(b) => b.unwrap()
+    };
+
+    // allocate our own buffer
+    let mut handles_buffer: Vec::<uefi::Handle> = Vec::with_capacity(out);
+    unsafe {handles_buffer.set_len(out)};
+    
+    // retry to get the handles
+    match bs.locate_handle(search, Some(&mut handles_buffer)) {
+        Ok(a) => {
+            let a = a.unwrap();
+            info!("Found {} handles for BlockIO operations", a);
+        },
+        Err(e) => panic!("Failed to get handles for BlockIO operations")
+    }
+
+    let handles = bs.find_handles::<BlockIO>().expect_success("Failed to get handles for BlockIO");
+
+    // now loop over the blockio handles and try some stuff
+    for handle in handles {
+        // try to get the blockio protocol from the handle
+
+        let bio_proto = bs.handle_protocol::<BlockIO>(handle)
+                          .expect("Failed to find BlockIO protocol on handle")
+                          .unwrap();
+        let bio_proto = unsafe { &* bio_proto.get()};
+
+        let b_info = bio_proto.media();
 
         // print the media info
         info!(
@@ -104,32 +130,30 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
             b_info.is_read_only()
         );
 
-        info!("Allignment information: {}", b_info.io_align());
+        // if media is not present, continue
+        if b_info.is_media_preset() == false {
+            continue;
+        }
 
         // save what we need to read bytes
-        let mid = b_info.media_id();
-        let mut buffer = vec![0u8;512];
-
-        
-
-        ////// BROKEN HERE //////
-        // save what we need to read a block
         let mut mid = b_info.media_id();
+        //let mut buffer = vec![0u8;512];
         let first_lba = b_info.lowest_aligned_lba();
-        let mut buffer = vec![0u8; 512];
         let alloc_t = AllocateType::AnyPages;
         let mut pg = bs.allocate_pages(alloc_t, MemoryType::LOADER_DATA, 1)
                        .expect_success("Failed to allocate pool");
-
-
-        
         let mut buff = unsafe { &mut *(pg as *mut [u8; 4096])};
+
 
         info!("Attempting to read block..");
         // try to read the block's info
+
+
         loop {
             info!("looping...");
-            match block_io.read_blocks(mid, 0, buff) {
+
+            // seems to be read blocking on this here...
+            match bio_proto.read_blocks(mid, 0, buff) {
                 Ok(_) => {
                     info!("Success!");
                     break
@@ -151,8 +175,9 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
                     },
                     Status::BAD_BUFFER_SIZE => {
                         info!("Bad buffer size, resizing...");
-                        let min_size = buffer.len()+1024; // temporary fix until we can actually get the new size back
-                        buffer.resize(min_size, 0);
+                        panic!("Not implemented at the moment :)")
+                        //let min_size = buffer.len()+1024; // temporary fix until we can actually get the new size back
+                        //buffer.resize(min_size, 0);
                     },
                     Status::INVALID_PARAMETER => {
                         info!("Invalid LBA/buffer allignment");
@@ -167,11 +192,12 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
             };
             info!("Finished loop");
         }
-                   
-
-    } else {
-        warn!("BlockIO Protocol is not available");
+        
+        
     }
+
+
+    
 
     vec![0u8;2]
 }
