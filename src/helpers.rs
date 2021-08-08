@@ -87,32 +87,13 @@ pub fn print_system_info(image: &Handle, st: &SystemTable<Boot>) {
 /// returns all disks protocol
 pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
 
-    // determine all disk protocol handles there are installed on the system
-    let search = uefi::table::boot::SearchType::from_proto::<BlockIO>();
-    let out = match bs.locate_handle(search, None) {
-        Err(a) => panic!("Error in locate handles."),
-        Ok(b) => b.unwrap()
-    };
-
-    // allocate our own buffer
-    let mut handles_buffer: Vec::<uefi::Handle> = Vec::with_capacity(out);
-    unsafe {handles_buffer.set_len(out)};
-    
-    // retry to get the handles
-    match bs.locate_handle(search, Some(&mut handles_buffer)) {
-        Ok(a) => {
-            let a = a.unwrap();
-            info!("Found {} handles for BlockIO operations", a);
-        },
-        Err(e) => panic!("Failed to get handles for BlockIO operations")
-    }
-
+    // get all handles available for BlockIO operations
     let handles = bs.find_handles::<BlockIO>().expect_success("Failed to get handles for BlockIO");
+    let mut count_media = 0;
 
     // now loop over the blockio handles and try some stuff
     for handle in handles {
         // try to get the blockio protocol from the handle
-
         let bio_proto = bs.handle_protocol::<BlockIO>(handle)
                           .expect("Failed to find BlockIO protocol on handle")
                           .unwrap();
@@ -122,9 +103,8 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
 
         // print the media info
         info!(
-            "Found media: id={}, removable={}, present={}, bs={}, ro={}",
+            "Found media: id={}, present={}, bs={}, ro={}",
             b_info.media_id(), 
-            b_info.is_removable_media(), 
             b_info.is_media_preset(), 
             b_info.block_size(), 
             b_info.is_read_only()
@@ -135,6 +115,7 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
             continue;
         }
 
+        count_media += 1;
         // save what we need to read bytes
         let mut mid = b_info.media_id();
         //let mut buffer = vec![0u8;512];
@@ -197,7 +178,7 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
     }
 
 
-    
+    info!("Currently {} media devices present", count_media);
 
     vec![0u8;2]
 }
