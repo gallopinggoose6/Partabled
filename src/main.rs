@@ -34,6 +34,9 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let bs = st.boot_services();
     let rt = st.runtime_services();
 
+    // make sure we disable the watchdog so the firmware doesn't interrupt our program
+    bs.set_watchdog_timer(0, 0xffffffffu64, None).expect("Failed to disable watchdog");
+
     // print version information
     helpers::print_system_info(&image, &st);
 
