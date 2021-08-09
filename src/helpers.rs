@@ -103,8 +103,21 @@ pub fn get_disk_protos(st: &mut SystemTable<Boot>) -> Vec<u8>{
         let bi = unsafe {&* bi.get()};
 
         let bmedia = bi.media();
+        let media_id = bmedia.media_id();
+        let block_size = bmedia.block_size();
+        let last_block = bmedia.last_block();
+        let low_lba = bmedia.lowest_aligned_lba();
 
-        info!("Block size: {}", bmedia.block_size());
+        info!("Disk size: {}", block_size as u64 * (last_block+1));
+    
+        // attempt to read from the buffer
+        let mut buf: Vec<u8> = vec![0u8; block_size as usize];
+
+        bi.read_blocks(media_id, low_lba, &mut buf)
+            .expect("Failed to read bytes");
+
+        info!("Successfully read bytes from media");
+        info!("{:?}", &buf[0..2]);
     }
 
     vec![0u8;2]
