@@ -1,2 +1,2 @@
 # Partabled
-A partition tool for creating, securely deleting, and even merging partitions.
+A UEFI application for creating, securely deleting, and even merging partitions.
