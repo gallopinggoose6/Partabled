@@ -88,10 +88,78 @@ pub fn print_system_info(image: &Handle, st: &SystemTable<Boot>) {
 pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
 
     // get all handles available for BlockIO operations
-    let handles = bs.find_handles::<BlockIO>().expect_success("Failed to get handles for BlockIO");
+    //let handles = bs.find_handles::<BlockIO>().expect_success("Failed to get handles for BlockIO");
     let mut count_media = 0;
 
+    let handles = bs.find_handles::<uefi::proto::device_path::DevicePath>()
+                    .expect_success("Failed to get handles for BlockIO");
+    
+    for handle in handles {
+        let dev = bs.handle_protocol::<uefi::proto::device_path::DevicePath>(handle)
+                    .expect("Failed to handle DevicePath protocol")
+                    .unwrap();
+        let dev = unsafe {&*dev.get()};
+            
+        
+
+        if dev.device_type == uefi::proto::device_path::DeviceType::Acpi {
+            let blockio_protocol_handle = match bs.handle_protocol::<BlockIO>(handle){
+                Ok(a) => a.unwrap(),
+                Err(e) => {
+                    let status = e.status();
+                    if status == uefi::Status::UNSUPPORTED {
+                        continue;
+                    } else {
+                        panic!("Got unhandled error on BlockIO handle: {:?}", status);
+                    }
+                }
+            };
+
+            info!("ACPI Device supports BlockIO operations");
+
+            let mut blockio_protocol_handle = unsafe {&mut *blockio_protocol_handle.get()};
+            let mut media_info = blockio_protocol_handle.media();
+
+            let mid = media_info.media_id();
+            let lba = media_info.lowest_aligned_lba();
+
+            info!(
+                "\tAdditional info for ACPI Device: mid={}, lba={}",
+                mid, lba
+            );
+
+            let bsize = media_info.block_size() as u64;
+            let last_block = media_info.last_block();
+            let disk_size = (last_block +1) * bsize;
+            info!(
+                "\tSize of disk: {} ({} blocks, size={})", 
+                disk_size,
+                last_block + 1,
+                bsize
+            );
+
+            if media_info.is_logical_partition() {
+                info!("\tDevice is a partition...");
+            }
+            info!(
+                "\tAdditional info: log_per_phys={}, trans_len={}",
+                media_info.logical_blocks_per_physical_block(),
+                media_info.optimal_transfer_length_granularity()
+            );
+
+            info!("Trying to read blocks");
+            let mut buffer = vec![0u8; bsize as usize].into_boxed_slice();
+            blockio_protocol_handle.read_blocks(media_info.media_id(), 1, &mut buffer)
+                .unwrap()
+                .unwrap();
+
+            info!("Read from blockio device");
+        }
+    }
+
+
     // now loop over the blockio handles and try some stuff
+    /*
     for handle in handles {
         // try to get the blockio protocol from the handle
         let bio_proto = bs.handle_protocol::<BlockIO>(handle)
@@ -175,7 +243,7 @@ pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
         }
         
         
-    }
+    }*/
 
 
     info!("Currently {} media devices present", count_media);
