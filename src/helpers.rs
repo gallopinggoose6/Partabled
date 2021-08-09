@@ -45,13 +45,13 @@ pub fn get_free_ram_size(services: &BootServices) -> u64 {
 
 
 /// function that prints system information
-pub fn print_system_info(image: &Handle, st: &SystemTable<Boot>) {
+pub fn print_system_info(image: &Handle, st: &mut SystemTable<Boot>) {
+    // clear the console
+    st.stdout().clear().expect("Failed to clear screen");
+
     // set up aliases for boot and runtime services
     let bs = st.boot_services();
     let rt = st.runtime_services();
-
-    // clear the console
-    st.stdout().clear().expect("Failed to clear screen");
 
 
     // print the firmware version to the console
@@ -76,177 +76,36 @@ pub fn print_system_info(image: &Handle, st: &SystemTable<Boot>) {
     let dev_handle = unsafe {&*dev_proto.get()};
 
     // now print the device information
-    let length = ((dev_handle.length[0] as u16) << 8) | dev_handle.length[1] as u16;
+    let length = dev_handle.length();
     info!("Path: type={:?}, subtype={:?}, length={}",
-        dev_handle.device_type, dev_handle.sub_type, length);
+        dev_handle.device_type(), dev_handle.sub_type(), length);
     
     //let disk_handle = image.device();
     
 }
 
 /// returns all disks protocol
-pub fn get_disk_protos(bs: &BootServices) -> Vec<u8>{
+pub fn get_disk_protos(st: &mut SystemTable<Boot>) -> Vec<u8>{
+    let bs = st.boot_services();
 
     // get all handles available for BlockIO operations
-    //let handles = bs.find_handles::<BlockIO>().expect_success("Failed to get handles for BlockIO");
-    let mut count_media = 0;
+    // note this code is known-working when injected to the end of the
+    // uefi-test-runner's media tests 
+    let handles2 = bs
+        .find_handles::<BlockIO>()
+        .expect_success("failed to find handles for `BlockIO`");
 
-    let handles = bs.find_handles::<uefi::proto::device_path::DevicePath>()
-                    .expect_success("Failed to get handles for BlockIO");
-    
-    for handle in handles {
-        let dev = bs.handle_protocol::<uefi::proto::device_path::DevicePath>(handle)
-                    .expect("Failed to handle DevicePath protocol")
-                    .unwrap();
-        let dev = unsafe {&*dev.get()};
-            
-        
+    for handle in handles2 {
+        let bi = bs
+            .handle_protocol::<BlockIO>(handle)
+            .expect_success("Failed to get BlockIO protocol");
 
-        if dev.device_type == uefi::proto::device_path::DeviceType::Acpi {
-            let blockio_protocol_handle = match bs.handle_protocol::<BlockIO>(handle){
-                Ok(a) => a.unwrap(),
-                Err(e) => {
-                    let status = e.status();
-                    if status == uefi::Status::UNSUPPORTED {
-                        continue;
-                    } else {
-                        panic!("Got unhandled error on BlockIO handle: {:?}", status);
-                    }
-                }
-            };
+        let bi = unsafe {&* bi.get()};
 
-            info!("ACPI Device supports BlockIO operations");
+        let bmedia = bi.media();
 
-            let mut blockio_protocol_handle = unsafe {&mut *blockio_protocol_handle.get()};
-            let mut media_info = blockio_protocol_handle.media();
-
-            let mid = media_info.media_id();
-            let lba = media_info.lowest_aligned_lba();
-
-            info!(
-                "\tAdditional info for ACPI Device: mid={}, lba={}",
-                mid, lba
-            );
-
-            let bsize = media_info.block_size() as u64;
-            let last_block = media_info.last_block();
-            let disk_size = (last_block +1) * bsize;
-            info!(
-                "\tSize of disk: {} ({} blocks, size={})", 
-                disk_size,
-                last_block + 1,
-                bsize
-            );
-
-            if media_info.is_logical_partition() {
-                info!("\tDevice is a partition...");
-            }
-            info!(
-                "\tAdditional info: log_per_phys={}, trans_len={}",
-                media_info.logical_blocks_per_physical_block(),
-                media_info.optimal_transfer_length_granularity()
-            );
-
-            info!("Trying to read blocks");
-            let mut buffer = vec![0u8; bsize as usize].into_boxed_slice();
-            blockio_protocol_handle.read_blocks(media_info.media_id(), 1, &mut buffer)
-                .unwrap()
-                .unwrap();
-
-            info!("Read from blockio device");
-        }
+        info!("Block size: {}", bmedia.block_size());
     }
-
-
-    // now loop over the blockio handles and try some stuff
-    /*
-    for handle in handles {
-        // try to get the blockio protocol from the handle
-        let bio_proto = bs.handle_protocol::<BlockIO>(handle)
-                          .expect("Failed to find BlockIO protocol on handle")
-                          .unwrap();
-        let bio_proto = unsafe { &* bio_proto.get()};
-
-        let b_info = bio_proto.media();
-
-        // print the media info
-        info!(
-            "Found media: id={}, present={}, bs={}, ro={}",
-            b_info.media_id(), 
-            b_info.is_media_preset(), 
-            b_info.block_size(), 
-            b_info.is_read_only()
-        );
-
-        // if media is not present, continue
-        if b_info.is_media_preset() == false {
-            continue;
-        }
-
-        count_media += 1;
-        // save what we need to read bytes
-        let mut mid = b_info.media_id();
-        //let mut buffer = vec![0u8;512];
-        let first_lba = b_info.lowest_aligned_lba();
-        let alloc_t = AllocateType::AnyPages;
-        let mut pg = bs.allocate_pages(alloc_t, MemoryType::LOADER_DATA, 1)
-                       .expect_success("Failed to allocate pool");
-        let mut buff = unsafe { &mut *(pg as *mut [u8; 4096])};
-
-
-        info!("Attempting to read block..");
-        // try to read the block's info
-
-
-        loop {
-            info!("looping...");
-
-            // seems to be read blocking on this here...
-            match bio_proto.read_blocks(mid, 0, buff) {
-                Ok(_) => {
-                    info!("Success!");
-                    break
-                },
-                Err(e) => {
-                    info!("Caught Error");
-                    match e.status() {
-                    Status::DEVICE_ERROR => {
-                        info!("Device error detected");
-                        break;
-                    },
-                    Status::NO_MEDIA => {
-                        info!("No media for that ID detected");
-                        break;
-                    },
-                    Status::MEDIA_CHANGED => {
-                        info!("Detected media ID change, updating...");
-                        mid = b_info.media_id();
-                    },
-                    Status::BAD_BUFFER_SIZE => {
-                        info!("Bad buffer size, resizing...");
-                        panic!("Not implemented at the moment :)")
-                        //let min_size = buffer.len()+1024; // temporary fix until we can actually get the new size back
-                        //buffer.resize(min_size, 0);
-                    },
-                    Status::INVALID_PARAMETER => {
-                        info!("Invalid LBA/buffer allignment");
-                        break;
-                    },
-                    Status(_) => {
-                        info!("Unexpected error detected");
-                        break;
-                    }
-                    }
-                }
-            };
-            info!("Finished loop");
-        }
-        
-        
-    }*/
-
-
-    info!("Currently {} media devices present", count_media);
 
     vec![0u8;2]
 }
