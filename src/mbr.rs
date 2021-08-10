@@ -5,9 +5,10 @@ use crate::alloc::vec::Vec;
 use core::convert::TryInto;
 use core::mem;
 
+// Link about MBR: https://en.wikipedia.org/wiki/Master_boot_record
+
 /// the signature of the MBR to ensure we actually read stuff
 const MBR_SIG: [u8; 2] = [0x55, 0xaa];
-
 
 /// defines the types of MBR partitions
 /// note: we only include partitions we support here
