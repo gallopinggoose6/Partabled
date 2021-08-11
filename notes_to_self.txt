@@ -1,0 +1,11 @@
+While it is pretty handy to be able to read file systems, do we know how best to 
+handle the modification of the data within them? 
+
+For example, FAT does everything based off of disk offsets, so what might be our
+strategy for ensuring that all offsets get properly updated, with the least 
+amount of RAM usage as possible (as the rest will be for storing our chunks of 
+data we are moving about). 
+
+Would best option be to add a function to the Filesystem trait along the lines 
+of "update_to_new_location" or something, and leave the implementation of that 
+to each driver?
