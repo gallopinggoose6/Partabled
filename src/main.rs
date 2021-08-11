@@ -15,6 +15,7 @@ extern crate rlibc;
 use core::mem;
 use uefi::prelude::*;
 use uefi::table::boot::MemoryDescriptor;
+use crate::alloc::vec::Vec;
 
 
 
@@ -39,12 +40,19 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     // print version information
     helpers::print_system_info(&image, &mut st);
 
-    // try to determine the path to the disk
-    let dev_h = helpers::get_disk_protos(&mut st);
+    // get the bootsectors of the various blockio devices
+    let bootsectors: Vec<[u8; 512]> = helpers::read_all_bootsectors(&mut st);
 
-    
+    // try to parse the MBRs of each bootsector
+    let mut bootsecs: Vec<mbr::MBR> = Vec::new();
+    for bootsec in bootsectors.iter() {
+        bootsecs.push(mbr::MBR::new(*bootsec));
+    }
+
     // wait a bit, then shutdown
     st.boot_services().stall(1_000_000);
+
+
     shutdown(image, st);
 }
 

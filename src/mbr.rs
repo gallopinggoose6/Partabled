@@ -12,8 +12,8 @@ const MBR_SIG: [u8; 2] = [0x55, 0xaa];
 
 /// defines the types of MBR partitions
 /// note: we only include partitions we support here
-#[derive(Copy,Clone,PartialEq)]
-enum MbrPartTypes {
+#[derive(Copy,Clone,Debug,PartialEq)]
+pub enum MbrPartTypes {
     Empty,              // id 0x00
     NTFS,               // id 0x07, 0x27 (ntfs recovery)
     Fat32,              // id 0x0b, 0x0c, 0x1c
@@ -21,14 +21,14 @@ enum MbrPartTypes {
     LinuxFS,            // id 0x83
     EFIProtectiveMBR,   // id 0xee
     EFISystem,          // id 0xef
-    //Fat12,            // ids 0x01, 0x11, 0x61
-    //Fat16,            // ids 0x04, 0x06, 0x0e, 0x14, 0x1e, 0x24, 0x56, 0x64, 0x66, 0x74, 0x76
+    Fat12,              // ids 0x01, 0x11, 0x61
+    Fat16,              // ids 0x04, 0x06, 0x0e, 0x14, 0x1e, 0x24, 0x56, 0x64, 0x66, 0x74, 0x76
     //LogicalFat,       // id 0x08 (note overlaps with OS/2, AIX boot, QNY)
 }
 
 /// defines an MBR partition
 #[derive(Copy,Clone)]
-struct MbrPartition {
+pub struct MbrPartition {
     active:         bool,
     // 0x1-> head, 
     // 0x2-> bits 5-0 -> sector, bits 7-6 -> high bits of cylinder (i.e. 9-8 of cylinder)
@@ -36,13 +36,13 @@ struct MbrPartition {
     chs_start:      [u8; 3],  
     chs_end:        [u8; 3],
     part_type:      MbrPartTypes,
-    lba_start:      u64,
-    num_sectors:    u64
+    lba_start:      u32,
+    num_sectors:    u32
 }
 
 
 /// defines our MBR structure
-struct MBR {
+pub struct MBR {
     partitions: Vec<MbrPartition>,
 }
 
@@ -67,6 +67,9 @@ impl MbrPartition {
             0x00 => MbrPartTypes::Empty,
             0x07 | 0x27 => MbrPartTypes::NTFS,
             0x0b | 0x0c | 0x1c => MbrPartTypes::Fat32,
+            0x04|0x06|0x0e|0x14|0x1e|0x24|0x56|0x64|0x66|0x74|0x76 =>
+                MbrPartTypes::Fat16,
+            0x01|0x11|0x61 => MbrPartTypes::Fat12,
             0x82 => MbrPartTypes::LinuxSwap,
             0x83 => MbrPartTypes::LinuxFS,
             0xee => MbrPartTypes::EFIProtectiveMBR,
@@ -75,11 +78,9 @@ impl MbrPartition {
         };
 
         // get the LBA and sector counts
-        let lba_start = u64::from_ne_bytes(
-            partition_buffer[8..12]
-            .try_into().unwrap()
-        );
-        let num_sectors = u64::from_ne_bytes(
+        let u32buf: [u8; 4] = partition_buffer[8..12].try_into().unwrap();
+        let lba_start = u32::from_ne_bytes(u32buf);
+        let num_sectors = u32::from_ne_bytes(
             partition_buffer[12..16]
             .try_into().unwrap()
         );
@@ -105,12 +106,12 @@ impl MbrPartition {
     }
 
     /// returns the lba start of the partition 
-    pub fn lba_start(&self) -> u64 {
+    pub fn lba_start(&self) -> u32 {
         self.lba_start
     }
 
     /// returns the number of sectors in the partition
-    pub fn num_sectors(&self) -> u64 {
+    pub fn num_sectors(&self) -> u32 {
         self.num_sectors
     }
 }
@@ -119,9 +120,9 @@ impl MbrPartition {
 ////////////////////// MBR MAIN FUNCTIONS ////////////////////////
 impl MBR {
     /// creates a bew MBR structure 
-    pub fn new(bootsector: Vec<u8>) -> Self {
+    pub fn new(bootsector: [u8; 512]) -> Self {
         // make sure the partition actually has the MBR signature
-        assert_eq!(bootsector[510..511], MBR_SIG, "Boot sector is not an MBR!");
+        assert_eq!(bootsector[510..512], MBR_SIG, "Boot sector is not an MBR!");
 
         // create our variables
         let mut partitions: Vec<MbrPartition> = Vec::new();
@@ -138,6 +139,10 @@ impl MBR {
         partitions.push(MbrPartition::new(p2));
         partitions.push(MbrPartition::new(p3));
         partitions.push(MbrPartition::new(p4));
+
+        for part in partitions.iter() {
+            info!("Added partition of type: {:?}", part.part_type());
+        }
 
         MBR {
             partitions

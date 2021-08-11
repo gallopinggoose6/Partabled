@@ -16,6 +16,7 @@ use uefi::proto::{
 
 use crate::alloc::vec::Vec;
 use core::mem;
+use core::convert::TryInto;
 
 
 
@@ -85,8 +86,9 @@ pub fn print_system_info(image: &Handle, st: &mut SystemTable<Boot>) {
 }
 
 /// returns all disks protocol
-pub fn get_disk_protos(st: &mut SystemTable<Boot>) -> Vec<u8>{
+pub fn read_all_bootsectors(st: &mut SystemTable<Boot>) -> Vec<[u8; 512]>{
     let bs = st.boot_services();
+    let mut ret: Vec<[u8; 512]> = Vec::new();
 
     // get all handles available for BlockIO operations
     // note this code is known-working when injected to the end of the
@@ -118,7 +120,11 @@ pub fn get_disk_protos(st: &mut SystemTable<Boot>) -> Vec<u8>{
 
         info!("Successfully read bytes from media");
         info!("{:?}", &buf[0..2]);
+         
+        // push the data into our return vector
+        let tmp: [u8; 512] = buf[..].try_into().unwrap();
+        ret.push(tmp.clone());
     }
 
-    vec![0u8;2]
+    ret
 }
