@@ -20,11 +20,9 @@ use crate::alloc::vec::Vec;
 
 
 // include our local files too
-mod gpt;
-mod mbr;
-mod ext4;
-mod fat32;
+mod partitions;
 mod helpers;
+mod fs;
 
 
 
@@ -47,18 +45,23 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     let bootsectors: Vec<helpers::BootRecord> = helpers::read_all_bootsectors(&mut st);
 
     // try to parse the MBRs of each bootsector
-    let mut mbrs: Vec<mbr::MBR> = Vec::new();
+    let mut mbrs: Vec<partitions::MBR> = Vec::new();
     for bootsec in bootsectors.iter() {
-        mbrs.push(mbr::MBR::new(bootsec.data, bootsec.media_id));
+        mbrs.push(
+            partitions::MBR::new(
+                bootsec.data, 
+                bootsec.media_id
+            )
+        );
     }
 
     // see if any of the devices are GPT partitioned
-    let mut gpts: Vec<gpt::GPT> = Vec::new();
+    let mut gpts: Vec<partitions::GPT> = Vec::new();
     for bootrec in mbrs.iter() {
         if bootrec.is_gpt_pmbr() {
             info!("Detected GPT Protective MBR");
             gpts.push(
-                gpt::GPT::new(
+                partitions::GPT::new(
                     &mut st, 
                     bootrec.media_id()
                 )
