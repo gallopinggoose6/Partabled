@@ -166,4 +166,14 @@ impl MBR {
         }
         ctr
     }
+
+    /// checks to see if it is a GPT Protective MBR
+    pub fn is_gpt_PMBR(&self) -> bool{
+        for part in self.partitions.iter() {
+            if part.part_type() == MbrPartTypes::EFIProtectiveMBR {
+                return true;
+            }
+        }
+        false
+    }
 }
