@@ -1,14 +1,10 @@
 // Includes various helper functions for ease of use
 use uefi::prelude::*;
-use uefi::{Result, Status};
 use uefi::table::boot::{
     BootServices,
     MemoryDescriptor,
-    MemoryType,
-    AllocateType
 };
 use uefi::proto::{
-    Protocol,
     loaded_image::LoadedImage,
     device_path::DevicePath,
     media::block::BlockIO
@@ -18,6 +14,12 @@ use crate::alloc::vec::Vec;
 use core::mem;
 use core::convert::TryInto;
 
+
+/// define a return type that we can use to help keep all information needed together
+pub struct BootRecord {
+    pub data: [u8; 512],
+    pub media_id: u32
+}
 
 
 
@@ -48,12 +50,14 @@ pub fn get_free_ram_size(services: &BootServices) -> u64 {
 /// function that prints system information
 pub fn print_system_info(image: &Handle, st: &mut SystemTable<Boot>) {
     // clear the console
-    st.stdout().clear().expect("Failed to clear screen");
+    st.stdout()
+        .clear()
+        .expect("Failed to clear screen")
+        .unwrap();
 
     // set up aliases for boot and runtime services
     let bs = st.boot_services();
-    let rt = st.runtime_services();
-
+    
 
     // print the firmware version to the console
     let firmware_vendor = st.firmware_vendor();
@@ -86,9 +90,9 @@ pub fn print_system_info(image: &Handle, st: &mut SystemTable<Boot>) {
 }
 
 /// returns all disks protocol
-pub fn read_all_bootsectors(st: &mut SystemTable<Boot>) -> Vec<[u8; 512]>{
+pub fn read_all_bootsectors(st: &mut SystemTable<Boot>) -> Vec<BootRecord>{
     let bs = st.boot_services();
-    let mut ret: Vec<[u8; 512]> = Vec::new();
+    let mut ret: Vec<BootRecord> = Vec::new();
 
     // get all handles available for BlockIO operations
     // note this code is known-working when injected to the end of the
@@ -116,14 +120,20 @@ pub fn read_all_bootsectors(st: &mut SystemTable<Boot>) -> Vec<[u8; 512]>{
         let mut buf: Vec<u8> = vec![0u8; block_size as usize];
 
         bi.read_blocks(media_id, low_lba, &mut buf)
-            .expect("Failed to read bytes");
+            .expect("Failed to read bytes")
+            .unwrap();
 
         info!("Successfully read bytes from media");
         info!("{:?}", &buf[0..2]);
          
         // push the data into our return vector
-        let tmp: [u8; 512] = buf[..].try_into().unwrap();
-        ret.push(tmp.clone());
+        let data: [u8; 512] = buf[..].try_into().unwrap();
+        ret.push(
+            BootRecord{
+                data,
+                media_id
+            }
+        );
     }
 
     ret

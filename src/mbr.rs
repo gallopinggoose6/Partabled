@@ -3,7 +3,6 @@
 //use uefi::prelude::*;
 use crate::alloc::vec::Vec;
 use core::convert::TryInto;
-use core::mem;
 
 // Link about MBR: https://en.wikipedia.org/wiki/Master_boot_record
 
@@ -43,6 +42,7 @@ pub struct MbrPartition {
 
 /// defines our MBR structure
 pub struct MBR {
+    media_id: u32,
     partitions: Vec<MbrPartition>,
 }
 
@@ -52,7 +52,7 @@ impl MbrPartition {
     /// create a new MbrPartition
     fn new(partition_buffer: [u8; 16]) -> Self {
         // see if partition is "active"
-        let active = match (partition_buffer[0] & 0x80) {
+        let active = match partition_buffer[0] & 0x80 {
             0 => false,
             _ => true
         };
@@ -127,7 +127,7 @@ impl MbrPartition {
 ////////////////////// MBR MAIN FUNCTIONS ////////////////////////
 impl MBR {
     /// creates a bew MBR structure 
-    pub fn new(bootsector: [u8; 512]) -> Self {
+    pub fn new(bootsector: [u8; 512], media_id: u32) -> Self {
         // make sure the partition actually has the MBR signature
         assert_eq!(bootsector[510..512], MBR_SIG, "Boot sector is not an MBR!");
 
@@ -152,6 +152,7 @@ impl MBR {
         }
 
         MBR {
+            media_id,
             partitions
         }
     }
@@ -168,12 +169,17 @@ impl MBR {
     }
 
     /// checks to see if it is a GPT Protective MBR
-    pub fn is_gpt_PMBR(&self) -> bool{
+    pub fn is_gpt_pmbr(&self) -> bool{
         for part in self.partitions.iter() {
             if part.part_type() == MbrPartTypes::EFIProtectiveMBR {
                 return true;
             }
         }
         false
+    }
+
+    /// returns the associated media id
+    pub fn media_id(&self) -> u32 {
+        self.media_id
     }
 }

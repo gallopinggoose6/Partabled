@@ -35,22 +35,39 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     uefi_services::init(&mut st).expect_success("Failed to initialized system table stuff");
     
     // make sure we disable the watchdog so the firmware doesn't interrupt our program
-    st.boot_services().set_watchdog_timer(0, 0xffffffffu64, None).expect("Failed to disable watchdog");
+    st.boot_services()
+        .set_watchdog_timer(0, 0xffffffffu64, None)
+        .expect("Failed to disable watchdog")
+        .unwrap();
 
     // print version information
     helpers::print_system_info(&image, &mut st);
 
     // get the bootsectors of the various blockio devices
-    let bootsectors: Vec<[u8; 512]> = helpers::read_all_bootsectors(&mut st);
+    let bootsectors: Vec<helpers::BootRecord> = helpers::read_all_bootsectors(&mut st);
 
     // try to parse the MBRs of each bootsector
-    let mut bootsecs: Vec<mbr::MBR> = Vec::new();
+    let mut mbrs: Vec<mbr::MBR> = Vec::new();
     for bootsec in bootsectors.iter() {
-        bootsecs.push(mbr::MBR::new(*bootsec));
+        mbrs.push(mbr::MBR::new(bootsec.data, bootsec.media_id));
+    }
+
+    // see if any of the devices are GPT partitioned
+    let mut gpts: Vec<gpt::GPT> = Vec::new();
+    for bootrec in mbrs.iter() {
+        if bootrec.is_gpt_pmbr() {
+            info!("Detected GPT Protective MBR");
+            gpts.push(
+                gpt::GPT::new(
+                    &mut st, 
+                    bootrec.media_id()
+                )
+            )
+        }
     }
 
     // print the number of partitions in each MBR we found
-    for part in bootsecs.iter() {
+    for part in mbrs.iter() {
         info!("Partition has {} non-empty partitions", part.count_partitions());
     }
 
