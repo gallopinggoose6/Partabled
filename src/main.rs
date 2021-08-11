@@ -49,6 +49,11 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         bootsecs.push(mbr::MBR::new(*bootsec));
     }
 
+    // print the number of partitions in each MBR we found
+    for part in bootsecs.iter() {
+        info!("Partition has {} non-empty partitions", part.count_partitions());
+    }
+
     // wait a bit, then shutdown
     st.boot_services().stall(1_000_000);
 

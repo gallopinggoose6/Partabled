@@ -114,6 +114,13 @@ impl MbrPartition {
     pub fn num_sectors(&self) -> u32 {
         self.num_sectors
     }
+
+    /// returns the size on disk of the partition 
+    pub fn size(&self, block_size: u64) -> u64 {
+        // formula for size on disk
+        // LBA_START + (#_Sectors x SECTOR_SIZE)
+        self.lba_start() as u64 + (self.num_sectors as u64 * block_size)
+    }
 }
 
 
@@ -147,7 +154,16 @@ impl MBR {
         MBR {
             partitions
         }
+    }
 
-
+    /// counts the number of non-empty partitions in the MBR
+    pub fn count_partitions(&self) -> u8 {
+        let mut ctr: u8 = 0;
+        for part in self.partitions.iter() {
+            if part.part_type() != MbrPartTypes::Empty {
+                ctr += 1;
+            }
+        }
+        ctr
     }
 }
