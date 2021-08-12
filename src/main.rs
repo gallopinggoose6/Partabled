@@ -72,6 +72,10 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         info!("Partition has {} non-empty partitions", part.count_partitions());
     }
 
+    for part in gpts.iter() {
+        info!("GPT has {} partitions.", part.num_parts());
+    }
+
     // wait a bit, then shutdown
     st.boot_services().stall(1_000_000);
     shutdown(image, st);

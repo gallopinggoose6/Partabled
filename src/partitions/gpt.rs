@@ -103,6 +103,11 @@ impl GPTHeader{
             part_crc32
         }
     } 
+
+    /// returns the number of partitions available 
+    pub fn num_partitions(&self) -> u32 {
+        self.num_partitions
+    }
 }
 
 ////////////////////////// GPTPARTITION IMPL //////////////////////////////
@@ -216,5 +221,15 @@ impl GPT {
 
         // if we get here, we coulnd't find the drive again so we die :)
         panic!("Failed to find drive with media id: {}", media_id);
+    }
+
+    /// returns the number of partitions found in the GPT Table
+    pub fn num_parts(&self) -> u32 {
+        self.header.num_partitions()
+    }
+
+    /// returns the partitions 
+    pub fn partitions(&self) -> &Vec<GPTPartition> {
+        &self.partitions
     }
 }
