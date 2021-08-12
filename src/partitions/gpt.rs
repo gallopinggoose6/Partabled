@@ -173,17 +173,27 @@ impl GPT {
 
                 // find the number of partitions and where they are located
                 let num_part    = header.num_partitions;
-                let read_total  = header.part_size;
                 let array_lba   = header.lba_part_entries;
+                let read_total  = header.part_size * num_part;
+                let read_total  = read_total + read_total % blocksize;
+                
 
                 // find the device we are operating on, and get the UEFI BlockIO protocol
                 let mut buf: Vec<u8> = vec![0u8; read_total as usize];
 
 
                 // attempt to read from the buffer
-                bi.read_blocks(media_id, array_lba, &mut buf)
-                    .expect("Failed to read bytes")
-                    .unwrap();
+                loop{
+                    match bi.read_blocks(media_id, array_lba, &mut buf) {
+                        Ok(a) => {
+                            a.unwrap();
+                            break;                            
+                        },
+                        Err(e) => match e {
+                            _ => panic!("Found unexpected error: {:?}", e) 
+                        }
+                    }
+                }
 
                 // now parse the data and add it to our partitions vector
                 for i in 0..num_part as usize {

@@ -39,7 +39,7 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
         .unwrap();
 
     // print version information
-    helpers::print_system_info(&image, &mut st);
+    helpers::print_system_info(&mut st);
 
     // get the bootsectors of the various blockio devices
     let bootsectors: Vec<helpers::BootRecord> = helpers::read_all_bootsectors(&mut st);
@@ -47,12 +47,10 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     // try to parse the MBRs of each bootsector
     let mut mbrs: Vec<partitions::MBR> = Vec::new();
     for bootsec in bootsectors.iter() {
-        mbrs.push(
-            partitions::MBR::new(
-                bootsec.data, 
-                bootsec.media_id
-            )
-        );
+        match partitions::MBR::new(bootsec.data, bootsec.media_id) {
+            Ok(a) => mbrs.push(a),
+            Err(_) => ()
+        }
     }
 
     // see if any of the devices are GPT partitioned

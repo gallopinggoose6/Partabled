@@ -23,6 +23,7 @@ pub enum MbrPartTypes {
     Fat12,              // ids 0x01, 0x11, 0x61
     Fat16,              // ids 0x04, 0x06, 0x0e, 0x14, 0x1e, 0x24, 0x56, 0x64, 0x66, 0x74, 0x76
     //LogicalFat,       // id 0x08 (note overlaps with OS/2, AIX boot, QNY)
+    Unknown             // catch-all for any file system we don't know 
 }
 
 /// defines an MBR partition
@@ -74,7 +75,7 @@ impl MbrPartition {
             0x83 => MbrPartTypes::LinuxFS,
             0xee => MbrPartTypes::EFIProtectiveMBR,
             0xef => MbrPartTypes::EFISystem,
-            _ => panic!("Unknown partition type! {}", partition_buffer[4])
+            _ => MbrPartTypes::Unknown
         };
 
         // get the LBA and sector counts
@@ -128,9 +129,12 @@ impl MbrPartition {
 ////////////////////// MBR MAIN FUNCTIONS ////////////////////////
 impl MBR {
     /// creates a bew MBR structure 
-    pub fn new(bootsector: [u8; 512], media_id: u32) -> Self {
+    pub fn new(bootsector: [u8; 512], media_id: u32) -> Result<Self, ()> {
         // make sure the partition actually has the MBR signature
-        assert_eq!(bootsector[510..512], MBR_SIG, "Boot sector is not an MBR!");
+        if bootsector[510..512] != MBR_SIG {
+            info!("Boot sector is not an MBR. Skipping...");
+            return Err(());
+        } 
 
         // create our variables
         let mut partitions: Vec<MbrPartition> = Vec::new();
@@ -148,10 +152,10 @@ impl MBR {
         partitions.push(MbrPartition::new(p3));
         partitions.push(MbrPartition::new(p4));
 
-        MBR {
+        Ok(MBR {
             media_id,
             partitions
-        }
+        })
     }
 
     /// counts the number of non-empty partitions in the MBR

@@ -4,11 +4,7 @@ use uefi::table::boot::{
     BootServices,
     MemoryDescriptor,
 };
-use uefi::proto::{
-    loaded_image::LoadedImage,
-    device_path::DevicePath,
-    media::block::BlockIO
-};
+use uefi::proto::media::block::BlockIO;
 
 use crate::alloc::vec::Vec;
 use core::mem;
@@ -45,16 +41,12 @@ pub fn get_free_ram_size(services: &BootServices) -> u64 {
 
 
 /// function that prints system information
-pub fn print_system_info(image: &Handle, st: &mut SystemTable<Boot>) {
+pub fn print_system_info(st: &mut SystemTable<Boot>) {
     // clear the console
     st.stdout()
         .clear()
         .expect("Failed to clear screen")
         .unwrap();
-
-    // set up aliases for boot and runtime services
-    let bs = st.boot_services();
-    
 
     // print the firmware version to the console
     let firmware_vendor = st.firmware_vendor();
