@@ -76,8 +76,6 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
 
     // wait a bit, then shutdown
     st.boot_services().stall(1_000_000);
-
-
     shutdown(image, st);
 }
 

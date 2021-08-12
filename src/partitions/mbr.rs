@@ -78,13 +78,14 @@ impl MbrPartition {
         };
 
         // get the LBA and sector counts
-        let u32buf: [u8; 4] = partition_buffer[8..12].try_into().unwrap();
-        let lba_start = u32::from_ne_bytes(u32buf);
-        let num_sectors = u32::from_ne_bytes(
-            partition_buffer[12..16]
-            .try_into().unwrap()
-        );
+        let u32buf: [u8; 4]     = partition_buffer[8..12].try_into().unwrap();
+        let lba_start           = u32::from_ne_bytes(u32buf);
+        let num_sectors         = u32::from_ne_bytes(
+                                      partition_buffer[12..16]
+                                      .try_into().unwrap()
+                                  );
 
+        // return the partition structure
         MbrPartition {
             active,
             chs_start,
@@ -146,10 +147,6 @@ impl MBR {
         partitions.push(MbrPartition::new(p2));
         partitions.push(MbrPartition::new(p3));
         partitions.push(MbrPartition::new(p4));
-
-        for part in partitions.iter() {
-            info!("Added partition of type: {:?}", part.part_type());
-        }
 
         MBR {
             media_id,
