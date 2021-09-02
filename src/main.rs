@@ -54,12 +54,12 @@ fn efi_main(image: Handle, mut st: SystemTable<Boot>) -> Status {
     }
 
     // see if any of the devices are GPT partitioned
-    let mut gpts: Vec<partitions::GPT> = Vec::new();
+    let mut gpts: Vec<partitions::GPTDisk> = Vec::new();
     for bootrec in mbrs.iter() {
         if bootrec.is_gpt_pmbr() {
             info!("Detected GPT Protective MBR");
             gpts.push(
-                partitions::GPT::new(
+                partitions::GPTDisk::new(
                     &mut st, 
                     bootrec.media_id()
                 )

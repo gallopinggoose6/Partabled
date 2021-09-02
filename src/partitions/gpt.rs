@@ -41,7 +41,9 @@ pub struct GPTPartition {
 }
 
 /// define out GPT struct, which will take an EFI disk to parse
-pub struct GPT {
+pub struct GPTDisk {
+    media_id:   u32,
+    blocksize:  u32,
     header:     GPTHeader,
     partitions: Vec<GPTPartition>
 }
@@ -140,7 +142,7 @@ impl GPTPartition {
 
 
 /// define our functions for the GPT struct so we can use it later on
-impl GPT {
+impl GPTDisk {
     /// creates a new GPT structure
     pub fn new(
         st: &mut SystemTable<Boot>, 
@@ -211,7 +213,9 @@ impl GPT {
                 }
 
                 // return the structure
-                return GPT {
+                return GPTDisk {
+                    blocksize,
+                    media_id,
                     header,
                     partitions
                 };
