@@ -28,7 +28,7 @@ SETTINGS = {
     # Path to directory containing `OVMF_{CODE/VARS}.fd` (for x86_64),
     # or `*-pflash.raw` (for AArch64).
     # `find_ovmf` function will try to find one if this isn't specified.
-    'ovmf_dir': Path('/usr/share/edk2-ovmf'),
+    'ovmf_dir': Path('/usr/share/edk2-ovmf/x64'),
 }
 
 # Path to target directory. If None, it will be initialized with information

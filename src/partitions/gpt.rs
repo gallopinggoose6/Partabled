@@ -2,6 +2,7 @@
 use uefi::prelude::*;
 use uefi::Guid;
 use uefi::proto::media::block::BlockIO;
+use uefi::table::boot::OpenProtocolParams;
 use crate::alloc::vec::Vec;
 use core::convert::TryInto;
 
@@ -58,7 +59,7 @@ pub fn bytes_to_guid(bytes: [u8; 16]) -> Guid {
     let time_mid = u16::from_ne_bytes(bytes[4..6].try_into().unwrap());
     let time_high = u16::from_ne_bytes(bytes[6..8].try_into().unwrap());
     let clock_seq = u16::from_ne_bytes(bytes[8..10].try_into().unwrap());
-    let node: [u8; 6] = bytes[10..16].try_into().unwrap();
+    let node: u64 = u64::from_ne_bytes(bytes[10..16].try_into().unwrap());
 
     // generate the GUID structure
     Guid::from_values(
@@ -146,20 +147,23 @@ impl GPTDisk {
     /// creates a new GPT structure
     pub fn new(
         st: &mut SystemTable<Boot>, 
-        media_id: u32) -> Self {
+        media_id: u32,
+        img_handle: Handle) -> Self {
             
         // alias the boot services for ease of access
         let bs = st.boot_services();
                 
         // get all handles available for BlockIO operations
         let handles2 = bs.find_handles::<BlockIO>()
-                         .expect_success("Failed to find handles for `BlockIO`");
+                         .expect("Failed to find handles for `BlockIO`");
 
         // loop over all handles and see if they are for the media we want
         for handle in handles2 {
-            let bi = bs.handle_protocol::<BlockIO>(handle)
-                       .expect_success("Failed to get `BlockIO` protocol");
-            let bi = unsafe {&* bi.get()};
+            let params = OpenProtocolParams{handle,agent: img_handle, controller: None};
+            let bi = bs.open_protocol::<BlockIO>(params, uefi::table::boot::OpenProtocolAttributes::Exclusive)
+                       .expect("Failed to get `BlockIO` protocol");
+
+            let bi = unsafe{&*bi.interface.get()};
 
             // get the variables of the media we need
             let test_media_id = bi.media().media_id();
@@ -170,8 +174,7 @@ impl GPTDisk {
                 // read the first lba
                 let mut first_lba = vec![0u8; blocksize as usize];
                 bi.read_blocks(media_id, 1, &mut first_lba)
-                    .expect("Failed to read bytes")
-                    .unwrap();
+                    .expect("Failed to read bytes");
 
                 
                 // parse the GPT header
@@ -192,8 +195,7 @@ impl GPTDisk {
                 // attempt to read from the buffer
                 loop{
                     match bi.read_blocks(media_id, array_lba, &mut buf) {
-                        Ok(a) => {
-                            a.unwrap();
+                        Ok(_) => {
                             break;                            
                         },
                         Err(e) => match e {

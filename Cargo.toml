@@ -5,8 +5,8 @@ authors = ["Nick Ammann"]
 edition = "2018"
 
 [dependencies]
-uefi = {version="0.11.0", features = ["exts"]}
-uefi-services = {version="0.8.0"}
+uefi = {version="0.16.0", features = ["exts"]}
+uefi-services = {version="0.13.0"}
 # uefi-macros = {version="0.3.3"}
 
 log = { version = "0.4.11", default-features = false }
@@ -15,9 +15,3 @@ log = { version = "0.4.11", default-features = false }
 # does not automatically get enabled. Therefore, we have to manually add support for
 # the memory functions.
 rlibc = "1.0.0"
-
-# because of an issue with the Media Info of the BlockIO protocol,
-# we need to use the github version of uefi-rs
-[replace] 
-"uefi:0.11.0" = { path = 'uefi-rs'}
-"uefi-services:0.8.0" = {path = "uefi-rs/uefi-services"}

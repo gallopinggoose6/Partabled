@@ -1,3 +1,0 @@
-[submodule "uefi-rs"]
-	path = uefi-rs
-	url = https://github.com/rust-osdev/uefi-rs.git

@@ -87,7 +87,7 @@ pub fn move_gpt_partition_safe(
 
     // save the disk length for when we update 
     // the partition information later
-    let target_len = target.last_lba() - target.first_lba()
+    let target_len = target.last_lba() - target.first_lba();
 
     // determine how much memory we can use and allocate that much 
     // note we save 32 MB for overheads just in case

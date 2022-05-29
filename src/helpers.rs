@@ -3,6 +3,7 @@ use uefi::prelude::*;
 use uefi::table::boot::{
     BootServices,
     MemoryDescriptor,
+    OpenProtocolParams
 };
 use uefi::proto::media::block::BlockIO;
 
@@ -22,12 +23,12 @@ pub struct BootRecord {
 /// helps determine the total free space in RAM
 pub fn get_free_ram_size(services: &BootServices) -> u64 {
     // get the memory size of the current memory map
-    let mm_size = services.memory_map_size() + 8 * mem::size_of::<MemoryDescriptor>();
+    let mm_size = services.memory_map_size().map_size + 8 * mem::size_of::<MemoryDescriptor>();
 
     // get a vector so we can store data in it
     let mut buf: Vec<u8> = vec![0u8; mm_size];
     let (_key, desc_iter) = services.memory_map(&mut buf)
-                                    .expect_success("Failed to retrieve memory map");
+                                    .expect("Failed to retrieve memory map");
     
     // loop over each descriptor and count its size
     let mut mem_size = 0u64;
@@ -45,8 +46,7 @@ pub fn print_system_info(st: &mut SystemTable<Boot>) {
     // clear the console
     st.stdout()
         .clear()
-        .expect("Failed to clear screen")
-        .unwrap();
+        .expect("Failed to clear screen");
 
     // print the firmware version to the console
     let firmware_vendor = st.firmware_vendor();
@@ -68,7 +68,7 @@ pub fn print_system_info(st: &mut SystemTable<Boot>) {
 }
 
 /// returns all disks protocol
-pub fn read_all_bootsectors(st: &mut SystemTable<Boot>) -> Vec<BootRecord>{
+pub fn read_all_bootsectors(st: &mut SystemTable<Boot>, img_handle: Handle) -> Vec<BootRecord>{
     let bs = st.boot_services();
     let mut ret: Vec<BootRecord> = Vec::new();
 
@@ -76,13 +76,14 @@ pub fn read_all_bootsectors(st: &mut SystemTable<Boot>) -> Vec<BootRecord>{
     // note this code is known-working when injected to the end of the
     // uefi-test-runner's media tests 
     let handles2 = bs.find_handles::<BlockIO>()
-                     .expect_success("failed to find handles for `BlockIO`");
+                     .expect("failed to find handles for `BlockIO`");
 
     for handle in handles2 {
-        let bi = bs.handle_protocol::<BlockIO>(handle)
-                   .expect_success("Failed to get BlockIO protocol");
+        let params = OpenProtocolParams{handle,agent: img_handle, controller: None};
+        let bi = bs.open_protocol::<BlockIO>(params, uefi::table::boot::OpenProtocolAttributes::Exclusive)
+                       .expect("Failed to get `BlockIO` protocol");
 
-        let bi = unsafe {&* bi.get()};
+        let bi = unsafe{&* bi.interface.get()};
 
         let bmedia = bi.media();
         let media_id = bmedia.media_id();
@@ -96,8 +97,7 @@ pub fn read_all_bootsectors(st: &mut SystemTable<Boot>) -> Vec<BootRecord>{
         let mut buf: Vec<u8> = vec![0u8; block_size as usize];
 
         bi.read_blocks(media_id, low_lba, &mut buf)
-            .expect("Failed to read bytes")
-            .unwrap();
+            .expect("Failed to read bytes");
 
          
         // push the data into our return vector
